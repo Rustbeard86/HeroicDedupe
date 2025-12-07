@@ -31,7 +31,7 @@ jobs:
       - name: Generate Checksums
         run: |
           cd release
-          # Fix: Exclude checksums.txt so we don't try to read the file we are writing to
+          # Fix: Exclude checksums.txt so we don't lock the file we are writing to
           Get-ChildItem -Exclude checksums.txt | Get-FileHash | Select-Object Hash, Path | Format-Table -HideTableHeaders | Out-File checksums.txt
           Get-Content checksums.txt
         shell: pwsh
