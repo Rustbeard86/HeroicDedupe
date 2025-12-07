@@ -171,17 +171,17 @@ Release builds are output to the `release/` folder:
 
 ```
 HeroicDedupe/
-??? Program.cs              # Application entry point
-??? Models/
-?   ??? Models.cs           # Data models (LocalGame, AppConfig, etc.)
-??? Readers/
-?   ??? Readers.cs          # Store library readers (Epic, GOG, Amazon)
-??? Services/
-?   ??? Services.cs         # Core services (Deduplication, Config modifier)
-?   ??? IgdbService.cs      # IGDB API integration with caching
-??? appsettings.json        # Configuration file
-??? build-release.ps1       # Release build script
-??? icon.ico                # Application icon
+|-- Program.cs              # Application entry point
+|-- Models/
+|   +-- Models.cs           # Data models (LocalGame, AppConfig, etc.)
+|-- Readers/
+|   +-- Readers.cs          # Store library readers (Epic, GOG, Amazon)
+|-- Services/
+|   |-- Services.cs         # Core services (Deduplication, Config modifier)
+|   +-- IgdbService.cs      # IGDB API integration with caching
+|-- appsettings.json        # Configuration file
+|-- build-release.ps1       # Release build script
++-- icon.ico                # Application icon
 ```
 
 ## FAQ
@@ -196,7 +196,7 @@ A: Check your `Priority` setting in `appsettings.json`. If `PreferEnhancedEditio
 A: First run needs to query IGDB for each unique game (~4 requests/second due to rate limits). Subsequent runs use the local cache and are nearly instant.
 
 **Q: Can I undo the changes?**  
-A: Yes! In Heroic, go to Settings ? Games ? Show Hidden Games, then unhide any games you want back.
+A: Yes! In Heroic, go to Settings > Games > Show Hidden Games, then unhide any games you want back.
 
 ## Contributing
 
