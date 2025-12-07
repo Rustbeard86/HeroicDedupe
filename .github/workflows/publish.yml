@@ -1,0 +1,52 @@
+name: Build and Publish Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 1. BUILD: Run your existing PowerShell script
+      - name: Build Release (Windows)
+        run: ./build-release.ps1 -Clean -Runtime win-x64
+        shell: pwsh
+
+      # 2. VERIFY: Generate Checksums (Old School method)
+      - name: Generate Checksums
+        run: |
+          cd release
+          Get-FileHash * | Select-Object Hash, Path | Format-Table -HideTableHeaders | Out-File checksums.txt
+          Get-Content checksums.txt
+        shell: pwsh
+
+      # 3. VERIFY: Generate Provenance (New "Verified" Badge method)
+      # This links the binary to this specific repo commit cryptographically
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'release/HeroicDedupe.exe'
+
+      # 4. UPLOAD: Add files to the GitHub Release
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/HeroicDedupe.exe
+            release/appsettings.json
+            release/checksums.txt
