@@ -11,7 +11,17 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+            executable: HeroicDedupe.exe
+          - os: ubuntu-latest
+            runtime: linux-x64
+            executable: HeroicDedupe
+    
+    runs-on: ${{ matrix.os }}
     
     steps:
       - name: Checkout code
@@ -23,31 +33,39 @@ jobs:
           dotnet-version: '10.0.x'
 
       # 1. BUILD: Run your existing PowerShell script
-      - name: Build Release (Windows)
-        run: ./build-release.ps1 -Clean -Runtime win-x64
+      - name: Build Release (${{ matrix.runtime }})
+        run: ./build-release.ps1 -Clean -Runtime ${{ matrix.runtime }}
         shell: pwsh
 
       # 2. VERIFY: Generate Checksums (Old School method)
-      - name: Generate Checksums
+      - name: Generate Checksums (Windows)
+        if: runner.os == 'Windows'
         run: |
           cd release
-          # Fix: Exclude checksums.txt so we don't lock the file we are writing to
           Get-ChildItem -Exclude checksums.txt | Get-FileHash | Select-Object Hash, Path | Format-Table -HideTableHeaders | Out-File checksums.txt
           Get-Content checksums.txt
         shell: pwsh
+
+      - name: Generate Checksums (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd release
+          sha256sum * | grep -v checksums.txt > checksums.txt || true
+          cat checksums.txt
+        shell: bash
 
       # 3. VERIFY: Generate Provenance (New "Verified" Badge method)
       # This links the binary to this specific repo commit cryptographically
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: 'release/HeroicDedupe.exe'
+          subject-path: 'release/${{ matrix.executable }}'
 
       # 4. UPLOAD: Add files to the GitHub Release
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/HeroicDedupe.exe
+            release/${{ matrix.executable }}
             release/appsettings.json
             release/checksums.txt
