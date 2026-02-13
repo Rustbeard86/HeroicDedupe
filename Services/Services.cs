@@ -110,15 +110,31 @@ public sealed class HeroicProcessManager(IConsoleLogger? logger = null)
             foreach (var p in processes)
                 try
                 {
-                    p.CloseMainWindow();
+                    // Try graceful shutdown first
+                    // On Windows: CloseMainWindow sends WM_CLOSE to the main window
+                    // On Linux: CloseMainWindow returns false (no GUI concept), so we skip to Kill with grace period
+                    bool closedGracefully = p.CloseMainWindow();
 
-                    // Smart wait: check every 500ms up to 3 seconds
-                    for (var i = 0; i < 6 && !p.HasExited; i++)
-                        Thread.Sleep(500);
+                    if (closedGracefully)
+                    {
+                        // Wait for graceful exit (Windows)
+                        for (var i = 0; i < 6 && !p.HasExited; i++)
+                            Thread.Sleep(500);
+                    }
 
                     if (!p.HasExited)
                     {
+                        // On Linux, Kill() sends SIGTERM (graceful termination signal)
+                        // On Windows, this forcefully terminates
                         p.Kill();
+                        
+                        // Give Linux processes a moment to handle SIGTERM gracefully
+                        if (!OperatingSystem.IsWindows())
+                        {
+                            for (var i = 0; i < 4 && !p.HasExited; i++)
+                                Thread.Sleep(500);
+                        }
+                        
                         _logger.WriteLine($"   [KILLED] Process {p.Id} was force closed.");
                     }
                     else
