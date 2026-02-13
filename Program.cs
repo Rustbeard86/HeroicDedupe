@@ -20,9 +20,10 @@ logger.WriteLine($"Mode: {(config.DryRun ? "[TEST] DRY RUN (Safe Mode)" : "[LIVE
 logger.WriteLine($"Priority: {string.Join(" > ", config.GetPriorityOrDefault())}");
 
 // 2. Check Process State (only needed for live mode - dry run doesn't write to disk)
+HeroicProcessManager? processManager = null;
 if (!config.DryRun)
 {
-    var processManager = new HeroicProcessManager(logger);
+    processManager = new HeroicProcessManager(logger);
     if (processManager.IsHeroicRunning() && !processManager.RequestClose())
     {
         logger.WriteLine("Exiting to prevent data corruption.");
@@ -81,6 +82,9 @@ else
     logger.WriteLine("Your library is already clean!");
 }
 
+// 7. Restart Heroic if we closed it
+processManager?.RestartHeroic();
+
 logger.WriteLine("\nPress any key to exit.");
 Console.ReadKey();
 return 0;
@@ -101,6 +105,12 @@ static async Task<List<LocalGame>> EnrichWithMetadataAsync(List<LocalGame> games
     var cachePath = Path.Combine(AppContext.BaseDirectory, "igdb_cache.json");
     var cache = new FileReleaseDateCache(cachePath, logger);
 
+    if (config.RefreshCache)
+    {
+        logger.WriteLine("[IGDB] --refresh-cache: clearing cached metadata...", ConsoleColor.Cyan);
+        cache.Clear();
+    }
+
     using var provider = new IgdbService(config.Igdb, cache, logger);
     return await provider.EnrichGamesAsync(games);
 }
@@ -115,12 +125,14 @@ static AppConfig LoadConfiguration(string[] args)
     var cfg = new AppConfig();
     builder.Build().Bind(cfg);
 
-    // Handle --dry-run / --live CLI overrides
+    // Handle CLI overrides
     foreach (var arg in args)
         if (arg.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
             cfg.DryRun = true;
         else if (arg.Equals("--live", StringComparison.OrdinalIgnoreCase))
             cfg.DryRun = false;
+        else if (arg.Equals("--refresh-cache", StringComparison.OrdinalIgnoreCase))
+            cfg.RefreshCache = true;
 
     return cfg;
 }

@@ -22,6 +22,7 @@ public interface IReleaseDateCache
     bool TryGet(string key, TimeSpan maxAge, out DateTime? releaseDate);
     void Set(string key, DateTime? releaseDate);
     void Save();
+    void Clear();
 }
 
 /// <summary>
@@ -74,6 +75,13 @@ public sealed class FileReleaseDateCache : IReleaseDateCache
         {
             _logger.WriteLine($"[Cache] Failed to save: {ex.Message}", ConsoleColor.DarkYellow);
         }
+    }
+
+    public void Clear()
+    {
+        _cache.Clear();
+        _modified = true;
+        _logger.WriteLine("[Cache] Cleared all entries.", ConsoleColor.DarkGray);
     }
 
     private Dictionary<string, CacheEntry> Load()

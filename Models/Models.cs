@@ -86,6 +86,12 @@ public sealed class AppConfig
     public bool PreferEnhancedEditions { get; set; } = true;
 
     /// <summary>
+    ///     When true, clears the IGDB cache and re-fetches all metadata from source.
+    /// </summary>
+    [JsonIgnore]
+    public bool RefreshCache { get; set; }
+
+    /// <summary>
     ///     Optional IGDB API configuration for enhanced metadata. Set via JSON.
     /// </summary>
     public IgdbConfig? Igdb { get; set; }

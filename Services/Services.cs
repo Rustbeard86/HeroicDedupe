@@ -51,6 +51,16 @@ public sealed class HeroicProcessManager(IConsoleLogger? logger = null)
     private const string ProcessName = "Heroic";
     private readonly IConsoleLogger _logger = logger ?? ConsoleLogger.Instance;
 
+    /// <summary>
+    ///     Tracks whether we closed Heroic so we can restart it on exit.
+    /// </summary>
+    public bool WasClosedByUs { get; private set; }
+
+    /// <summary>
+    ///     The executable path of the Heroic process we closed, used for restarting.
+    /// </summary>
+    private string? _heroicExePath;
+
     public bool IsHeroicRunning()
     {
         var processes = Process.GetProcessesByName(ProcessName);
@@ -70,6 +80,16 @@ public sealed class HeroicProcessManager(IConsoleLogger? logger = null)
 
         try
         {
+            // Capture the executable path before closing so we can restart later
+            try
+            {
+                _heroicExePath = processes[0].MainModule?.FileName;
+            }
+            catch
+            {
+                // May fail due to access rights; we'll try common paths on restart
+            }
+
             _logger.WriteLine($"\n[WARNING] Heroic Launcher is currently running ({processes.Length} instance(s)).",
                 ConsoleColor.Yellow);
             _logger.WriteLine("   Changes to config.json will be overwritten if Heroic is not closed first.",
@@ -112,6 +132,7 @@ public sealed class HeroicProcessManager(IConsoleLogger? logger = null)
                     return false;
                 }
 
+            WasClosedByUs = true;
             return true;
         }
         finally
@@ -119,6 +140,65 @@ public sealed class HeroicProcessManager(IConsoleLogger? logger = null)
             foreach (var p in processes)
                 p.Dispose();
         }
+    }
+
+    /// <summary>
+    ///     Restarts Heroic if it was previously closed by us.
+    /// </summary>
+    public void RestartHeroic()
+    {
+        if (!WasClosedByUs)
+            return;
+
+        // Try the captured path first, then fall back to common install locations
+        var candidatePaths = new List<string>();
+
+        if (!string.IsNullOrEmpty(_heroicExePath))
+            candidatePaths.Add(_heroicExePath);
+
+        // Common Windows install paths
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        candidatePaths.Add(Path.Combine(localAppData, "Programs", "heroic", "Heroic.exe"));
+
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        candidatePaths.Add(Path.Combine(programFiles, "Heroic", "Heroic.exe"));
+
+        // Linux / Flatpak fallbacks
+        candidatePaths.Add("/usr/bin/heroic");
+        candidatePaths.Add("/usr/bin/flatpak");
+
+        foreach (var path in candidatePaths)
+        {
+            if (!File.Exists(path))
+                continue;
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true
+                };
+
+                // Handle Flatpak launch on Linux
+                if (path.EndsWith("flatpak", StringComparison.OrdinalIgnoreCase))
+                {
+                    startInfo.Arguments = "run com.heroicgameslauncher.hgl";
+                }
+
+                Process.Start(startInfo);
+                _logger.WriteLine("[OK] Heroic Launcher restarted.", ConsoleColor.Green);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.WriteLine($"[WARNING] Failed to restart Heroic from '{path}': {ex.Message}",
+                    ConsoleColor.Yellow);
+            }
+        }
+
+        _logger.WriteLine("[WARNING] Could not restart Heroic - executable not found. Please start it manually.",
+            ConsoleColor.Yellow);
     }
 }
 
