@@ -12,6 +12,7 @@ A smart deduplication tool for [Heroic Games Launcher](https://heroicgameslaunch
 - **Smart Matching**: Groups games by normalized titles, handling trademark symbols, edition suffixes, and naming variations
 - **Intelligent Prioritization**: Configurable store priority with optional preference for enhanced editions (Remastered, Definitive, GOTY)
 - **IGDB Integration**: Optional metadata enrichment via IGDB API for accurate release dates
+- **Auto-Restart**: Automatically restarts Heroic launcher after processing if it was closed
 - **Safe by Default**: Dry-run mode previews changes before applying
 - **Local Caching**: IGDB lookups are cached locally for fast subsequent runs
 
@@ -36,7 +37,12 @@ A smart deduplication tool for [Heroic Games Launcher](https://heroicgameslaunch
 
 # Apply changes (hides duplicates in Heroic)
 ./HeroicDedupe.exe --live
+
+# Refresh IGDB cache and apply changes
+./HeroicDedupe.exe --live --refresh-cache
 ```
+
+> **Note**: If Heroic is running, you'll be prompted to close it. The app will automatically restart Heroic when finished.
 
 ## Configuration
 
@@ -76,8 +82,9 @@ Edit `appsettings.json` to customize behavior:
 ### Command Line Overrides
 
 ```bash
---dry-run    # Force dry-run mode (safe preview)
---live       # Force live mode (apply changes)
+--dry-run         # Force dry-run mode (safe preview)
+--live            # Force live mode (apply changes)
+--refresh-cache   # Clear IGDB cache and re-fetch all metadata from source
 ```
 
 ### Linux Configuration
@@ -114,25 +121,27 @@ For more accurate release date matching, you can enable IGDB metadata enrichment
    }
    ```
 
-> **Note**: First run with IGDB enabled will take several minutes to fetch metadata. Results are cached locally in `igdb_cache.json` for 30 days.
+> **Note**: First run with IGDB enabled will take several minutes to fetch metadata. Results are cached locally in `igdb_cache.json` for 30 days. Use `--refresh-cache` to force a re-fetch from IGDB.
 
 ## How It Works
 
-1. **Reads** game libraries from Heroic's cache files
-2. **Normalizes** titles by removing trademark symbols (®™©), edition suffixes, and special characters
-3. **Groups** games with matching normalized titles
-4. **Sorts** each group by priority:
+1. **Checks** if Heroic is running and prompts to close it gracefully (live mode only)
+2. **Reads** game libraries from Heroic's cache files
+3. **Normalizes** titles by removing trademark symbols (Â®â„¢Â©), edition suffixes, and special characters
+4. **Groups** games with matching normalized titles
+5. **Sorts** each group by priority:
    - Enhanced editions first (if `PreferEnhancedEditions` is true)
    - Store priority order
    - Release date (newest first)
-5. **Marks** all but the winner as hidden in Heroic's config
+6. **Marks** all but the winner as hidden in Heroic's config
+7. **Restarts** Heroic launcher automatically if it was closed in step 1
 
 ### Example Output
 
 ```
 Match Group [key: bioshock2]
-  [KEEP] Gog    | BioShock™ 2 Remastered (1482265668) [Remastered, 2016-09-14]
-  [HIDE] Gog    | BioShock® 2 (1806891286) [2010-02-09]
+  [KEEP] Gog    | BioShockï¿½ 2 Remastered (1482265668) [Remastered, 2016-09-14]
+  [HIDE] Gog    | BioShockï¿½ 2 (1806891286) [2010-02-09]
   [HIDE] Epic   | BioShock 2 Remastered (b22ce34b...) [Remastered, 2016-09-14]
 --------------------------------------------------
 ```
